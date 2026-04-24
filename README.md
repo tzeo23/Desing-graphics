@@ -2,157 +2,208 @@
 <html lang="el">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Το Site Μου</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Τζεο Discord</title>
 
 <style>
-*{
-margin:0;
-padding:0;
-box-sizing:border-box;
-font-family:Arial,sans-serif;
-}
-
 body{
-background: linear-gradient(135deg,#667eea,#764ba2);
-min-height:100vh;
+margin:0;
+font-family:system-ui;
+background:#0f0f13;
 color:white;
-}
-
-nav{
 display:flex;
-justify-content:space-between;
-padding:25px 10%;
+height:100vh;
 }
 
-.logo{
-font-size:28px;
+.sidebar{
+width:220px;
+background:#111827;
+padding:15px;
+}
+
+.channel{
+padding:10px;
+margin-top:8px;
+background:#1f2937;
+border-radius:8px;
+cursor:pointer;
+}
+
+.channel.active{
+background:#3b82f6;
+}
+
+.main{
+flex:1;
+display:flex;
+flex-direction:column;
+}
+
+.top{
+padding:15px;
+background:#111827;
 font-weight:bold;
 }
 
-nav ul{
-display:flex;
-gap:30px;
-list-style:none;
+.chat{
+flex:1;
+overflow-y:auto;
+padding:15px;
 }
 
-nav a{
+.msg{
+background:#1f2937;
+padding:10px;
+border-radius:10px;
+margin-bottom:10px;
+}
+
+small{
+color:#9ca3af;
+}
+
+.input{
+display:flex;
+gap:10px;
+padding:15px;
+background:#111827;
+}
+
+input{
+flex:1;
+padding:10px;
+border:none;
+border-radius:8px;
+background:#0b1220;
 color:white;
-text-decoration:none;
-}
-
-.hero{
-height:85vh;
-display:flex;
-justify-content:center;
-align-items:center;
-text-align:center;
-padding:20px;
-}
-
-.hero-content{
-max-width:700px;
-}
-
-h1{
-font-size:60px;
-margin-bottom:20px;
-}
-
-p{
-font-size:22px;
-margin-bottom:35px;
-line-height:1.6;
 }
 
 button{
-background:white;
-color:#764ba2;
+padding:10px 15px;
 border:none;
-padding:16px 35px;
-font-size:18px;
-border-radius:30px;
+border-radius:8px;
+background:#3b82f6;
+color:white;
 cursor:pointer;
-transition:0.3s;
-}
-
-button:hover{
-transform:scale(1.08);
-}
-
-.cards{
-display:grid;
-grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
-gap:30px;
-padding:80px 10%;
-}
-
-.card{
-background:rgba(255,255,255,0.15);
-backdrop-filter:blur(10px);
-padding:35px;
-border-radius:25px;
-box-shadow:0 8px 25px rgba(0,0,0,0.2);
-}
-
-.card h2{
-margin-bottom:15px;
-}
-
-footer{
-text-align:center;
-padding:40px;
-margin-top:40px;
 }
 </style>
-
 </head>
+
 <body>
 
-<nav>
-<div class="logo">My Website</div>
+<div class="sidebar">
+<h3>Channels</h3>
 
-<ul>
-<li><a href="#">Αρχική</a></li>
-<li><a href="#">Σχετικά</a></li>
-<li><a href="#">Projects</a></li>
-<li><a href="#">Επικοινωνία</a></li>
-</ul>
-</nav>
+<div class="channel active" onclick="setRoom('general',this)"># general</div>
+<div class="channel" onclick="setRoom('music',this)"># music</div>
+<div class="channel" onclick="setRoom('friends',this)"># friends</div>
 
-<section class="hero">
-<div class="hero-content">
-<h1>Καλώς ήρθες στο site μου</h1>
-<p>
-Μοντέρνο design, όμορφα animations και επαγγελματικό στυλ.
-</p>
-
-<button onclick="alert('Καλώς ήρθες!')">
-Ξεκίνα
-</button>
-</div>
-</section>
-
-<section class="cards">
-<div class="card">
-<h2>🚀 Γρήγορο</h2>
-<p>Responsive και μοντέρνα σχεδίαση.</p>
 </div>
 
-<div class="card">
-<h2>🎨 Όμορφο</h2>
-<p>Minimal design με premium εμφάνιση.</p>
+<div class="main">
+
+<div class="top"># <span id="roomName">general</span></div>
+
+<div id="chat" class="chat"></div>
+
+<div class="input">
+<input id="name" placeholder="Όνομα">
+<input id="text" placeholder="Μήνυμα...">
+<button onclick="send()">Send</button>
 </div>
 
-<div class="card">
-<h2>💡 Δημιουργικό</h2>
-<p>Ιδανικό για portfolio ή προσωπικό site.</p>
 </div>
-</section>
 
-<footer>
-© 2026 Το προσωπικό μου website
-</footer>
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+getFirestore,
+collection,
+addDoc,
+onSnapshot,
+query,
+where,
+orderBy,
+serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+apiKey: "YOUR_KEY",
+authDomain: "YOUR_DOMAIN",
+projectId: "YOUR_ID"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let room = "general";
+
+/* CHANGE ROOM */
+window.setRoom = function(r,el){
+
+room = r;
+document.getElementById("roomName").innerText = r;
+
+document.querySelectorAll(".channel")
+.forEach(c=>c.classList.remove("active"));
+
+el.classList.add("active");
+
+load();
+}
+
+/* SEND MESSAGE */
+window.send = async function(){
+
+let name = document.getElementById("name").value || "Anon";
+let text = document.getElementById("text").value;
+
+if(!text) return;
+
+await addDoc(collection(db,"messages"),{
+name,
+text,
+room,
+time:serverTimestamp()
+});
+
+document.getElementById("text").value="";
+}
+
+/* LOAD CHAT */
+function load(){
+
+const q = query(
+collection(db,"messages"),
+where("room","==",room),
+orderBy("time")
+);
+
+onSnapshot(q,(snap)=>{
+
+let chat = document.getElementById("chat");
+chat.innerHTML="";
+
+snap.forEach(doc=>{
+let d = doc.data();
+
+chat.innerHTML += `
+<div class="msg">
+<b>${d.name}</b>
+<div>${d.text}</div>
+<small>${new Date(d.time?.seconds*1000).toLocaleString()}</small>
+</div>
+`;
+});
+
+});
+
+}
+
+load();
+
+</script>
 
 </body>
 </html>

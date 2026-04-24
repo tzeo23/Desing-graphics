@@ -3,190 +3,205 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Τζεο Platform</title>
+<title>Τζεο Discord</title>
 
 <style>
-*{
-margin:0;
-padding:0;
-box-sizing:border-box;
-font-family:system-ui;
-}
-
 body{
-background:linear-gradient(135deg,#0f172a,#1e293b);
+margin:0;
+font-family:system-ui;
+background:#0f0f13;
 color:white;
-min-height:100vh;
 display:flex;
-justify-content:center;
-align-items:center;
-padding:20px;
+height:100vh;
 }
 
-.container{
-width:100%;
-max-width:800px;
-text-align:center;
-}
-
-/* LANDING */
-#landing h1{
-font-size:60px;
-margin-bottom:15px;
-}
-
-#landing p{
-font-size:20px;
-color:#cbd5e1;
-margin-bottom:30px;
-}
-
-button{
-padding:15px 30px;
-border:none;
-border-radius:12px;
-background:#3b82f6;
-color:white;
-font-size:16px;
-cursor:pointer;
-transition:0.3s;
-}
-
-button:hover{
-background:#2563eb;
-transform:scale(1.05);
-}
-
-/* COMMENTS */
-#app{
-display:none;
-width:100%;
-text-align:left;
-}
-
-h2{
-text-align:center;
-margin-bottom:20px;
-}
-
-textarea{
-width:100%;
-height:120px;
-padding:15px;
-border-radius:12px;
-border:none;
-background:#111827;
-color:white;
-resize:none;
-}
-
-.comment{
+.sidebar{
+width:220px;
 background:#111827;
 padding:15px;
-border-radius:12px;
-margin-top:10px;
-position:relative;
 }
 
-.delete{
-position:absolute;
-top:10px;
-right:10px;
-background:red;
-border:none;
-color:white;
-padding:5px 8px;
+.channel{
+padding:10px;
+margin-top:8px;
+background:#1f2937;
 border-radius:8px;
 cursor:pointer;
-font-size:12px;
+}
+
+.channel.active{
+background:#3b82f6;
+}
+
+.main{
+flex:1;
+display:flex;
+flex-direction:column;
+}
+
+.top{
+padding:15px;
+background:#111827;
+font-weight:bold;
+}
+
+.chat{
+flex:1;
+overflow-y:auto;
+padding:15px;
+}
+
+.msg{
+background:#1f2937;
+padding:10px;
+border-radius:10px;
+margin-bottom:10px;
 }
 
 small{
-color:#94a3b8;
+color:#9ca3af;
+}
+
+.input{
+display:flex;
+gap:10px;
+padding:15px;
+background:#111827;
+}
+
+input{
+flex:1;
+padding:10px;
+border:none;
+border-radius:8px;
+background:#0b1220;
+color:white;
+}
+
+button{
+padding:10px 15px;
+border:none;
+border-radius:8px;
+background:#3b82f6;
+color:white;
+cursor:pointer;
 }
 </style>
 </head>
 
 <body>
 
-<div class="container">
+<div class="sidebar">
+<h3>Channels</h3>
 
-<!-- LANDING -->
-<div id="landing">
-<h1>Τζεο Platform</h1>
-<p>Μια απλή πλατφόρμα για σχόλια και δημιουργία.</p>
-<button onclick="start()">Ξεκίνα</button>
-</div>
-
-<!-- APP -->
-<div id="app">
-
-<h2>📝 Σχόλια</h2>
-
-<textarea id="text" placeholder="Γράψε κάτι..."></textarea>
-<button onclick="addComment()">Δημοσίευση</button>
-
-<div id="list"></div>
+<div class="channel active" onclick="setRoom('general',this)"># general</div>
+<div class="channel" onclick="setRoom('music',this)"># music</div>
+<div class="channel" onclick="setRoom('friends',this)"># friends</div>
 
 </div>
 
+<div class="main">
+
+<div class="top"># <span id="roomName">general</span></div>
+
+<div id="chat" class="chat"></div>
+
+<div class="input">
+<input id="name" placeholder="Όνομα">
+<input id="text" placeholder="Μήνυμα...">
+<button onclick="send()">Send</button>
 </div>
 
-<script>
+</div>
 
-let comments = JSON.parse(localStorage.getItem("comments") || "[]");
+<script type="module">
 
-/* START APP */
-function start(){
-document.getElementById("landing").style.display="none";
-document.getElementById("app").style.display="block";
-render();
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+getFirestore,
+collection,
+addDoc,
+onSnapshot,
+query,
+where,
+orderBy,
+serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+apiKey: "YOUR_KEY",
+authDomain: "YOUR_DOMAIN",
+projectId: "YOUR_ID"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let room = "general";
+
+/* CHANGE ROOM */
+window.setRoom = function(r,el){
+
+room = r;
+document.getElementById("roomName").innerText = r;
+
+document.querySelectorAll(".channel")
+.forEach(c=>c.classList.remove("active"));
+
+el.classList.add("active");
+
+load();
 }
 
-/* SAVE */
-function save(){
-localStorage.setItem("comments", JSON.stringify(comments));
-}
+/* SEND MESSAGE */
+window.send = async function(){
 
-/* ADD */
-function addComment(){
+let name = document.getElementById("name").value || "Anon";
 let text = document.getElementById("text").value;
-if(!text.trim()) return;
 
-comments.unshift({
+if(!text) return;
+
+await addDoc(collection(db,"messages"),{
+name,
 text,
-time:new Date().toLocaleString()
+room,
+time:serverTimestamp()
 });
 
-save();
 document.getElementById("text").value="";
-render();
 }
 
-/* DELETE */
-function deleteComment(i){
-comments.splice(i,1);
-save();
-render();
-}
+/* LOAD CHAT */
+function load(){
 
-/* RENDER */
-function render(){
+const q = query(
+collection(db,"messages"),
+where("room","==",room),
+orderBy("time")
+);
 
-let list = document.getElementById("list");
-list.innerHTML="";
+onSnapshot(q,(snap)=>{
 
-comments.forEach((c,i)=>{
-list.innerHTML += `
-<div class="comment">
-<button class="delete" onclick="deleteComment(${i})">X</button>
-<div>${c.text}</div>
-<small>${c.time}</small>
+let chat = document.getElementById("chat");
+chat.innerHTML="";
+
+snap.forEach(doc=>{
+let d = doc.data();
+
+chat.innerHTML += `
+<div class="msg">
+<b>${d.name}</b>
+<div>${d.text}</div>
+<small>${new Date(d.time?.seconds*1000).toLocaleString()}</small>
 </div>
 `;
 });
 
+});
+
 }
+
+load();
 
 </script>
 
